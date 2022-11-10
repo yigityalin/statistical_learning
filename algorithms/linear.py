@@ -87,6 +87,13 @@ class LinearRegression:
         return self.b + X @ self.W
 
     def _get_alpha(self, iteration):
+        """
+        Calculates the learning rate.
+        Returns the alpha parameter of the model if it is a float.
+        Calls the alpha of the model with the current iteration number if it is a callable,
+        :param iteration: the iteration number
+        :return: learning rate
+        """
         if isinstance(self.alpha, Number):
             alpha = self.alpha
         elif isinstance(self.alpha, Callable):
