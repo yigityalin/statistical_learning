@@ -97,6 +97,7 @@ class LinearRegression:
         """
         if self.b is None or self.W is None:
             raise RuntimeError('The model is not fit.')
+        X = np.asarray(X)
         return self.b + X @ self.W
 
     def _get_alpha(self, iteration):
