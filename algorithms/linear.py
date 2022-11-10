@@ -7,6 +7,20 @@ from . import utils
 
 
 class LinearRegression:
+    """
+    Linear regression model that fits the parameters using gradient descent.
+    Only MSE is supported for gradient descent updates.
+
+    Attributes:
+        b : np.ndarray
+            the bias vector of the model
+        W : np.ndarray
+            the weight vector of the model
+        alpha : Number | Callable[[int], int]
+            the learning rate of the model
+        lambda_ : float
+            the regularization parameter of the model
+    """
     def __init__(self, alpha: Number | Callable[[int], int] = 1e-2, lambda_: float = 0, normalize_features: bool = True):
         """
         The init method of the LinearRegression model
