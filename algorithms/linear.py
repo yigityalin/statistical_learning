@@ -15,7 +15,7 @@ class LinearRegression:
         b : np.ndarray
             the bias vector of the model
         W : np.ndarray
-            the weight vector of the model
+            the weight matrix of the model
         alpha : Number | Callable[[int], int]
             the learning rate of the model
         lambda_ : float
@@ -46,8 +46,8 @@ class LinearRegression:
     @property
     def W(self):
         """
-        The weight vector of the model
-        :return: the weight vector
+        The weight matrix of the model
+        :return: the weight matrix
         """
         return self._W
 
