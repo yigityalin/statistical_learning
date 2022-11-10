@@ -10,8 +10,9 @@ def initialize_parameters(b_shape: tuple, W_shape: tuple) -> tuple[np.ndarray, n
     :param W_shape: shape of the weight matrix
     :return: the bias vector and the weight matrix
     """
-    b = np.random.rand(*b_shape)
-    W = np.random.rand(*W_shape)
+    rng = np.random.default_rng()
+    b = rng.uniform(-1, 1, b_shape)
+    W = rng.uniform(-1, 1, W_shape)
     return b, W
 
 

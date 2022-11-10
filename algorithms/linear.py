@@ -71,7 +71,7 @@ class LinearRegression:
         if X.ndim != 2:
             raise ValueError('The number of dimensions of the feature matrix has to be 2.')
         if y.ndim == 1:
-            y = y.reshape(shape=(-1, 1))
+            y = y.reshape((-1, 1))
         elif y.ndim != 2:
             raise ValueError('The shape of the target matrix has to be (n, 1) or (n,),'
                              ' where n is the number of the training samples')
@@ -87,7 +87,6 @@ class LinearRegression:
             self._b -= alpha * grad_b
             self._W -= alpha * grad_W
             iteration += 1
-        print(iteration)
         return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
