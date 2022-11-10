@@ -36,7 +36,7 @@ class LinearRegression:
             raise ValueError('lambda must satisfy >= 0')
 
     @property
-    def b(self):
+    def b(self) -> np.ndarray:
         """
         The y-intercept of the model
         :return: the y-intercept
@@ -44,7 +44,7 @@ class LinearRegression:
         return self._b
 
     @property
-    def W(self):
+    def W(self) -> np.ndarray:
         """
         The weight matrix of the model
         :return: the weight matrix
@@ -52,12 +52,21 @@ class LinearRegression:
         return self._W
 
     def __repr__(self) -> str:
+        """
+        Returns the initialization signature of the instance
+        :return: the string representation
+        """
         return f'LinearRegression(alpha={self.alpha}, lambda_={self.lambda_})'
 
     def __str__(self) -> str:
+        """
+        Calls the repr method of the class
+        :return: the string representation
+        """
         return repr(self)
 
-    def fit(self, X: np.ndarray, y: np.ndarray = None, max_iter: int = None, tolerance: float = 1e-14):
+    def fit(self, X: np.ndarray, y: np.ndarray = None,
+            max_iter: int = None, tolerance: float = 1e-14) -> 'LinearRegression':
         """
         Calculates the weights and bias of the model using the gradient descent algorithm
         :param X: the feature matrix
@@ -96,7 +105,7 @@ class LinearRegression:
         X, _ = utils.check_dims(X)
         return self.b + X @ self.W
 
-    def _get_alpha(self, iteration):
+    def _get_alpha(self, iteration: int) -> float:
         """
         Calculates the learning rate.
         Returns the alpha parameter of the model if it is a float.
