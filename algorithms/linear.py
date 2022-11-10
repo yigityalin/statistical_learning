@@ -68,13 +68,8 @@ class LinearRegression:
         """
         X = np.asarray(X)
         y = np.asarray(y)
-        if X.ndim != 2:
-            raise ValueError('The number of dimensions of the feature matrix has to be 2.')
-        if y.ndim == 1:
-            y = y.reshape((-1, 1))
-        elif y.ndim != 2:
-            raise ValueError('The shape of the target matrix has to be (n, 1) or (n,),'
-                             ' where n is the number of the training samples')
+
+        X, y = utils.check_dims(X, y)
 
         self._b, self._W = utils.initialize_parameters(b_shape=(1, 1), W_shape=(X.shape[-1], 1))
         iteration, grad_b, grad_W = 0, np.inf, np.inf
@@ -98,6 +93,7 @@ class LinearRegression:
         if self.b is None or self.W is None:
             raise RuntimeError('The model is not fit.')
         X = np.asarray(X)
+        X, _ = utils.check_dims(X)
         return self.b + X @ self.W
 
     def _get_alpha(self, iteration):
