@@ -21,7 +21,7 @@ class LinearRegression:
         lambda_ : float
             the regularization parameter of the model
     """
-    def __init__(self, alpha: Number | Callable[[int], int] = 1e-2, lambda_: float = 0):
+    def __init__(self, alpha: Number | Callable[[int], Number] = 1e-2, lambda_: float = 0):
         """
         The init method of the LinearRegression model
         :param alpha: the learning rate
