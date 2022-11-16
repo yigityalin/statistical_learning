@@ -20,6 +20,7 @@ def check_dims(X=None, y=None):
                              ' where n is the number of the training samples')
     return X, y
 
+
 def initialize_parameters(b_shape: tuple, W_shape: tuple) -> tuple[np.ndarray, np.ndarray]:
     """
     Generates random weights from uniform distribution between 0 and 1
@@ -31,12 +32,3 @@ def initialize_parameters(b_shape: tuple, W_shape: tuple) -> tuple[np.ndarray, n
     b = rng.uniform(-1, 1, b_shape)
     W = rng.uniform(-1, 1, W_shape)
     return b, W
-
-
-def normalize(X: np.ndarray) -> np.ndarray:
-    """
-    Normalize the features
-    :param X: the feature matrix
-    :return: the normalized feature matrix
-    """
-    return (X - np.mean(X, axis=0)) / np.std(X, axis=0)
