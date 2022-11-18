@@ -1,5 +1,5 @@
 from numbers import Number
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Union
 
 import numpy as np
 
@@ -16,12 +16,12 @@ class LinearRegression:
             the bias vector of the model
         W : np.ndarray
             the weight matrix of the model
-        alpha : Number | Callable[[int], int]
+        alpha : Union[Number, Callable[[int], Number]]
             the learning rate of the model
         lambda_ : float
             the regularization parameter of the model
     """
-    def __init__(self, alpha: Number | Callable[[int], Number] = 1e-2, lambda_: float = 0):
+    def __init__(self, alpha: Union[Number, Callable[[int], Number]] = 1e-2, lambda_: float = 0):
         """
         The init method of the LinearRegression model
         :param alpha: the learning rate

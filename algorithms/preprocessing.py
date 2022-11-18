@@ -1,12 +1,12 @@
 from pathlib import Path
-from typing import Iterable, Tuple
+from typing import Iterable, Tuple, Union
 
 import pandas as pd
 
 import config
 
 
-def load_dataset(path: str | Path = config.DATASET_PATH) -> pd.DataFrame:
+def load_dataset(path: Union[str, Path] = config.DATASET_PATH) -> pd.DataFrame:
     """
     Loads  dataset
     :param path: the file path of the dataset
@@ -34,7 +34,7 @@ def split_dataset(data: pd.DataFrame,
 
 
 def encode_categorical(data: pd.DataFrame,
-                       columns: Iterable[str] | None = None,
+                       columns: Union[Iterable[str], None] = None,
                        drop_first: bool = True) -> pd.DataFrame:
     """
     One-hot encodes the categorical data
@@ -51,7 +51,7 @@ def encode_categorical(data: pd.DataFrame,
 
 
 def normalize_features(data: pd.DataFrame,
-                       columns: Iterable[str] | None = None) -> pd.DataFrame:
+                       columns: Union[Iterable[str], None] = None) -> pd.DataFrame:
     """
     Normalize the features
     :param data: the dataset
@@ -67,13 +67,13 @@ def normalize_features(data: pd.DataFrame,
     return data
 
 
-def load_and_preprocess_dataset(path: str | Path = config.DATASET_PATH,
+def load_and_preprocess_dataset(path: Union[str, Path] = config.DATASET_PATH,
                                 target: str = config.TARGET,
                                 test_split: float = 0.2,
                                 seed: int = 42,
                                 normalize: bool = True,
                                 encode: bool = True,
-                                drop_first: bool = True) -> pd.DataFrame | Tuple[pd.DataFrame, pd.DataFrame]:
+                                drop_first: bool = True) -> Union[pd.DataFrame, Tuple[pd.DataFrame, pd.DataFrame]]:
     data = load_dataset(path)
     if normalize:
         data = normalize_features(data)
