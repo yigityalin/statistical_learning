@@ -4,9 +4,28 @@ from typing import Callable, Tuple, Union
 import numpy as np
 
 from . import utils
+from .base import Model
 
 
-class LinearRegression:
+def check_dimensions(X=None, y=None):
+    """
+    Checks the dimensions of the feature matrix and the target vector.
+    :param X: the feature matrix
+    :param y: the target vector
+    :return: the feature matrix and the target vector
+    """
+    if X is not None and X.ndim != 2:
+        raise ValueError('The number of dimensions of the feature matrix has to be 2.')
+    if y is not None:
+        if y.ndim == 1:
+            y = y.reshape((-1, 1))
+        elif y.ndim != 2:
+            raise ValueError('The shape of the target matrix has to be (n, 1) or (n,),'
+                             ' where n is the number of the training samples')
+    return X, y
+
+
+class LinearRegression(Model):
     """
     Linear regression model that fits the parameters using gradient descent.
     Only MSE is supported for gradient descent updates.
@@ -51,6 +70,14 @@ class LinearRegression:
         """
         return self._W
 
+    def __call__(self, X: np.ndarray) -> np.ndarray:
+        """
+        Wraps the model's predict method
+        :param X: the feature matrix
+        :return: predictions
+        """
+        return self.predict(X)
+
     def __repr__(self) -> str:
         """
         Returns the initialization signature of the instance
@@ -65,22 +92,32 @@ class LinearRegression:
         """
         return repr(self)
 
-    def fit(self, X: np.ndarray, y: np.ndarray = None,
-            max_iter: int = None, tolerance: float = 1e-14) -> 'LinearRegression':
+    def initialize_parameters(self):
+        self._b, self._W = utils.initialize_parameters(b_shape=(1, 1), W_shape=(X.shape[-1], 1))
+
+    def fit(self,
+            X: np.ndarray,
+            y: np.ndarray = None,
+            max_iter: int = None,
+            tolerance: float = 1e-14,
+            cold_start: bool = False) -> None:
         """
         Calculates the weights and bias of the model using the gradient descent algorithm
         :param X: the feature matrix
         :param y: the target vector
         :param max_iter: maximum number of iterations
         :param tolerance: the tolerance for MSE loss below which the parameters are acceptable
+        :param cold_start: whether to reinitialize the weights before training
         :return: the regressor itself
         """
         X = np.asarray(X)
         y = np.asarray(y)
 
-        X, y = utils.check_dims(X, y)
+        X, y = check_dimensions(X, y)
 
-        self._b, self._W = utils.initialize_parameters(b_shape=(1, 1), W_shape=(X.shape[-1], 1))
+        if cold_start or self.b is None or self.W is None:
+            self.initialize_parameters()
+
         iteration, grad_b, grad_W = 0, np.inf, np.inf
         if max_iter is None:
             max_iter = np.inf
@@ -91,18 +128,12 @@ class LinearRegression:
             self._b -= alpha * grad_b
             self._W -= alpha * grad_W
             iteration += 1
-        return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
-        """
-        Predicts the labels for a given feature matrix
-        :param X: the feature matrix
-        :return: predictions
-        """
         if self.b is None or self.W is None:
             raise RuntimeError('The model is not fit.')
         X = np.asarray(X)
-        X, _ = utils.check_dims(X)
+        X, _ = check_dimensions(X)
         return self.b + X @ self.W
 
     def _get_alpha(self, iteration: int) -> float:

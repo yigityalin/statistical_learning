@@ -5,6 +5,7 @@ import numpy as np
 
 from . import utils
 from .activations import Activation
+from .base import Model
 
 
 class FullyConnectedLayer:
@@ -36,7 +37,16 @@ class FullyConnectedLayer:
         self.in_features = in_features
         self.out_features = out_features
         self._activation = activation()
-        self._b, self._W = utils.initialize_parameters(b_shape=(1, out_features), W_shape=(in_features, out_features))
+        self._b = None
+        self._W = None
+        self.initialize_parameters()
+
+    def initialize_parameters(self):
+        """
+        Initializes the layer parameters
+        """
+        self._b, self._W = utils.initialize_parameters(b_shape=(1, self.out_features),
+                                                       W_shape=(self.in_features, self.out_features))
 
     @property
     def b(self) -> np.ndarray:
@@ -77,6 +87,21 @@ class FullyConnectedLayer:
         """
         return self.activation(self.V(X))
 
+    def __repr__(self) -> str:
+        """
+        The string representation of the layer
+        :return: the string representation
+        """
+        return f'FullyConnectedLayer(in_features={self.in_features}, ' \
+               f'out_features={self.out_features}, activation={self.activation})'
+
+    def __str__(self) -> str:
+        """
+        The string representation of the layer
+        :return: the string representation
+        """
+        return repr(self)
+
     def apply_gradients(self, alpha: Number, db: np.ndarray, dW: np.ndarray):
         """
         Applies gradient descent updates to the layer weights
@@ -89,7 +114,7 @@ class FullyConnectedLayer:
         self._W -= alpha * dW
 
 
-class NeuralNetwork:
+class NeuralNetwork(Model):
     """
     Neural network model that is a stack of FullyConnectedLayers instances.
 
@@ -117,14 +142,25 @@ class NeuralNetwork:
 
     def __call__(self, X: np.ndarray) -> np.ndarray:
         """
-        Inference mode forward pass through the neural network
+        Wraps the model's predict method
         :param X: the feature matrix
-        :return: the predictions
+        :return: predictions
         """
-        Z = X
-        for layer in self.layers:
-            Z = layer(Z)
-        return Z
+        return self.predict(X)
+
+    def __repr__(self) -> str:
+        """
+        The string representation of the neural network
+        :return: the string representation
+        """
+        return f'NeuralNetwork(n_neurons={[layer.out_features for layer in self.layers]})'
+
+    def __str__(self) -> str:
+        """
+        The string representation of the neural network
+        :return: the string representation
+        """
+        return repr(self)
 
     @staticmethod
     def calculate_gradients(m: int,
@@ -158,6 +194,10 @@ class NeuralNetwork:
         else:
             raise NotImplementedError('alpha parameter can only be a number or a callable that returns a number.')
         return learning_rate
+
+    def initialize_parameters(self):
+        for layer in self.layers:
+            layer.initialize_parameters()
 
     def forward(self, X: np.ndarray) -> Tuple[List, List]:
         """
@@ -216,8 +256,8 @@ class NeuralNetwork:
             batch_size: int,
             epochs: int,
             alpha: Union[Number, Callable[[int], Number]],
-            X_validation: np.ndarray,
-            y_validation: np.ndarray) -> None:
+            shuffle: bool = True,
+            cold_start: bool = False) -> None:
         """
         Fits the neural network to the training data via gradient descent
         :param X_train: the feature matrix of training data
@@ -225,16 +265,31 @@ class NeuralNetwork:
         :param batch_size: the size of batches for each gradient descent step
         :param epochs: the number of iterations on the training data
         :param alpha: the learning rate or a callable that takes the iteration number and returns the learning rate
+        :param shuffle: whether to shuffle the dataset each iteration while training
+        :param cold_start: whether to reinitialize the weights before training
         :param X_validation: the feature matrix of validation data
         :param y_validation: the target vector of validation data
         :return: None
         """
+        if cold_start:
+            self.initialize_parameters()
         n_batches = len(y_train) // batch_size
         for iteration in range(1, epochs + 1):
             learning_rate = self.calculate_learning_rate(alpha, iteration)
+            indices = np.random.permutation(len(y_train)) if shuffle else np.arange(len(y_train))
             for batch in range(0, n_batches):
-                X_batch = X_train[batch * batch_size: (batch + 1) * batch_size]
-                y_batch = y_train[batch * batch_size: (batch + 1) * batch_size]
+                batch_indices = indices[batch * batch_size: (batch + 1) * batch_size]
+                X_batch = X_train[batch_indices]
+                y_batch = y_train[batch_indices]
                 self.step(X_batch, y_batch, learning_rate)
 
-        # TODO: Calculate accuracy on validation dataset
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """
+        Inference mode forward pass through the neural network
+        :param X: the feature matrix
+        :return: the predictions
+        """
+        Z = X
+        for layer in self.layers:
+            Z = layer(Z)
+        return Z
