@@ -73,7 +73,8 @@ def load_and_preprocess_dataset(path: Union[str, Path] = config.DATASET_PATH,
                                 seed: int = 42,
                                 normalize: bool = True,
                                 encode: bool = True,
-                                drop_first: bool = True) -> Union[pd.DataFrame, Tuple[pd.DataFrame, pd.DataFrame]]:
+                                drop_first: bool = True
+                                ) -> Union[pd.DataFrame, Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]]:
     data = load_dataset(path)
     if normalize:
         data = normalize_features(data)
