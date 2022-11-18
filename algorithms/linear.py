@@ -1,5 +1,5 @@
 from numbers import Number
-from typing import Callable
+from typing import Callable, Tuple
 
 import numpy as np
 
@@ -121,7 +121,7 @@ class LinearRegression:
             raise ValueError('The alpha parameters must be of type float or Callable[[int], int]')
         return alpha
 
-    def _calculate_gradients(self, X: np.ndarray, y: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    def _calculate_gradients(self, X: np.ndarray, y: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         Calculate the gradients for MSE loss with current bias and weights
         :param X: the feature matrix

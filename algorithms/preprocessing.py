@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Tuple
 
 import pandas as pd
 
@@ -18,7 +18,7 @@ def load_dataset(path: str | Path = config.DATASET_PATH) -> pd.DataFrame:
 def split_dataset(data: pd.DataFrame,
                   target: str = config.TARGET,
                   test_split: float = 0.2,
-                  seed: int = 42) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+                  seed: int = 42) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
     Splits the dataset
     :param data: the dataset
@@ -73,7 +73,7 @@ def load_and_preprocess_dataset(path: str | Path = config.DATASET_PATH,
                                 seed: int = 42,
                                 normalize: bool = True,
                                 encode: bool = True,
-                                drop_first: bool = True) -> pd.DataFrame | tuple[pd.DataFrame, pd.DataFrame]:
+                                drop_first: bool = True) -> pd.DataFrame | Tuple[pd.DataFrame, pd.DataFrame]:
     data = load_dataset(path)
     if normalize:
         data = normalize_features(data)

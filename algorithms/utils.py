@@ -1,4 +1,4 @@
-from typing import Callable
+from typing import Tuple
 
 import numpy as np
 
@@ -21,7 +21,7 @@ def check_dims(X=None, y=None):
     return X, y
 
 
-def initialize_parameters(b_shape: tuple, W_shape: tuple) -> tuple[np.ndarray, np.ndarray]:
+def initialize_parameters(b_shape: Tuple, W_shape: Tuple) -> Tuple[np.ndarray, np.ndarray]:
     """
     Generates random weights from uniform distribution between 0 and 1
     :param b_shape: shape of the bias vector
