@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from copy import deepcopy
 
 import numpy as np
 
@@ -66,3 +67,11 @@ class Model(ABC):
         :return: predictions
         """
         pass
+
+    def copy(self) -> 'Model':
+        """
+        Creates of a deepcopy of the model.
+        Wraps Python's copy.deepcopy function
+        :return: a copy of the model
+        """
+        return deepcopy(self)
