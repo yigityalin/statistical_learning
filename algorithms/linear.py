@@ -7,7 +7,7 @@ from . import utils
 from .base import Model
 
 
-def check_dimensions(X=None, y=None):
+def check_dimensions(X=None, y=None) -> Tuple[Union[None, np.ndarray], Union[None, np.ndarray]]:
     """
     Checks the dimensions of the feature matrix and the target vector.
     :param X: the feature matrix
@@ -92,14 +92,14 @@ class LinearRegression(Model):
         """
         return repr(self)
 
-    def initialize_parameters(self):
-        self._b, self._W = utils.initialize_parameters(b_shape=(1, 1), W_shape=(X.shape[-1], 1))
+    def initialize_parameters(self, in_features: int):
+        self._b, self._W = utils.initialize_parameters(b_shape=(1, 1), W_shape=(in_features, 1))
 
     def fit(self,
             X: np.ndarray,
-            y: np.ndarray = None,
+            y: np.ndarray,
             max_iter: int = None,
-            tolerance: float = 1e-14,
+            tolerance: float = 1e-10,
             cold_start: bool = False) -> None:
         """
         Calculates the weights and bias of the model using the gradient descent algorithm
@@ -116,7 +116,7 @@ class LinearRegression(Model):
         X, y = check_dimensions(X, y)
 
         if cold_start or self.b is None or self.W is None:
-            self.initialize_parameters()
+            self.initialize_parameters(X.shape[-1])
 
         iteration, grad_b, grad_W = 0, np.inf, np.inf
         if max_iter is None:
