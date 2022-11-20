@@ -175,8 +175,8 @@ class NeuralNetwork(Model):
         :param Z_prev: the layer
         :return:
         """
-        db = np.expand_dims(np.sum(dZ, axis=1), axis=0) / m
-        dW = (dV @ Z_prev).T / m
+        db = np.expand_dims(np.sum(dZ, axis=0), axis=0) / m
+        dW = (dV.T @ Z_prev).T / m
         return db, dW
 
     @staticmethod
@@ -228,7 +228,7 @@ class NeuralNetwork(Model):
         :return: None
         """
         m = Z_cache[-1].shape[1]
-        dZ = (2 / m) * np.subtract(Z_cache[-1], np.array(y_true))
+        dZ = (2 / m) * np.subtract(Z_cache[-1], y_true)
         dV = self.layers[-1].activation.backward(V_cache[-1], dZ)
         db = (1 / m) * np.sum(dZ)
         dW = Z_cache[-2].T @ dV / m
@@ -236,7 +236,7 @@ class NeuralNetwork(Model):
 
         for i in reversed(range(0, len(self.layers) - 1)):
             m = Z_cache[i].shape[1]
-            dZ = self.layers[i + 1].W.T @ dV
+            dZ = (self.layers[i + 1].W @ dV.T).T
             dV = self.layers[i].activation.backward(V_cache[i], dZ)
 
             db, dW = self.calculate_gradients(m, dV, dZ, Z_cache[i])
@@ -260,6 +260,7 @@ class NeuralNetwork(Model):
             epochs: int,
             alpha: Union[Number, Callable[[int], Number]],
             shuffle: bool = True,
+            start_epoch: int = 0,
             cold_start: bool = False) -> 'NeuralNetwork':
         """
         Fits the neural network to the training data via gradient descent
@@ -277,7 +278,7 @@ class NeuralNetwork(Model):
         if cold_start:
             self.initialize_parameters()
         n_batches = len(y_train) // batch_size
-        for iteration in range(1, epochs + 1):
+        for iteration in range(1 + start_epoch, 1 + start_epoch + epochs):
             learning_rate = self.calculate_learning_rate(alpha, iteration)
             indices = np.random.permutation(len(y_train)) if shuffle else np.arange(len(y_train))
             for batch in range(0, n_batches):
