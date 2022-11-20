@@ -169,14 +169,14 @@ class NeuralNetwork(Model):
                             Z_prev: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
         Calculates the gradients of a neural network layer given
-        :param m:
-        :param dV:
-        :param dZ:
-        :param Z_prev:
+        :param m: the input shape
+        :param dV: the gradient of the induced local field
+        :param dZ: the gradient of the layer output
+        :param Z_prev: the layer
         :return:
         """
-        db = np.expand_dims(np.sum(dZ, axis=1), axis=1) / m
-        dW = dV @ Z_prev.T / m
+        db = np.expand_dims(np.sum(dZ, axis=1), axis=0) / m
+        dW = (dV @ Z_prev).T / m
         return db, dW
 
     @staticmethod
@@ -214,7 +214,10 @@ class NeuralNetwork(Model):
             Z_cache.append(Z)
         return V_cache, Z_cache
 
-    def backward(self, y_true: np.ndarray, V_cache: List[np.ndarray], Z_cache: List[np.ndarray], alpha: Number) -> None:
+    def backward(self, y_true: np.ndarray,
+                 V_cache: List[np.ndarray],
+                 Z_cache: List[np.ndarray],
+                 alpha: Number) -> None:
         """
         Training mode backward pass through the neural network.
         Calculates the gradients and applies the gradient descent updates to the layer weights.
@@ -257,7 +260,7 @@ class NeuralNetwork(Model):
             epochs: int,
             alpha: Union[Number, Callable[[int], Number]],
             shuffle: bool = True,
-            cold_start: bool = False) -> None:
+            cold_start: bool = False) -> 'NeuralNetwork':
         """
         Fits the neural network to the training data via gradient descent
         :param X_train: the feature matrix of training data
@@ -267,10 +270,10 @@ class NeuralNetwork(Model):
         :param alpha: the learning rate or a callable that takes the iteration number and returns the learning rate
         :param shuffle: whether to shuffle the dataset each iteration while training
         :param cold_start: whether to reinitialize the weights before training
-        :param X_validation: the feature matrix of validation data
-        :param y_validation: the target vector of validation data
         :return: None
         """
+        X_train = np.asarray(X_train)
+        y_train = np.asarray(y_train)
         if cold_start:
             self.initialize_parameters()
         n_batches = len(y_train) // batch_size
@@ -282,6 +285,7 @@ class NeuralNetwork(Model):
                 X_batch = X_train[batch_indices]
                 y_batch = y_train[batch_indices]
                 self.step(X_batch, y_batch, learning_rate)
+        return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         """

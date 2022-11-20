@@ -8,6 +8,8 @@ def mse(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     :param y_pred: the predicted targets
     :return: the mean squared error
     """
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
     return np.sum(np.square(y_true - y_pred)) / len(y_true)
 
 
@@ -18,6 +20,8 @@ def mae(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     :param y_pred: the predicted targets
     :return: the mean absolute error
     """
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
     return np.sum(np.abs(y_true - y_pred)) / len(y_true)
 
 
@@ -28,7 +32,9 @@ def mape(y_true: np.ndarray, y_pred: np.ndarray) -> float:
     :param y_pred: the predicted targets
     :return: the mean absolute percentage error
     """
-    return np.sum(np.divide(np.abs(y_true - y_pred), y_true)) / len(y_pred)
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
+    return np.sum(np.abs(np.divide(y_true - y_pred, y_true))) / len(y_pred)
 
 
 def r2(y_true: np.ndarray, y_pred: np.ndarray) -> float:

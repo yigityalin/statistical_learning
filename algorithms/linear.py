@@ -100,7 +100,7 @@ class LinearRegression(Model):
             y: np.ndarray,
             max_iter: int = None,
             tolerance: float = 1e-10,
-            cold_start: bool = False) -> None:
+            cold_start: bool = False) -> 'LinearRegression':
         """
         Calculates the weights and bias of the model using the gradient descent algorithm
         :param X: the feature matrix
@@ -128,6 +128,7 @@ class LinearRegression(Model):
             self._b -= alpha * grad_b
             self._W -= alpha * grad_W
             iteration += 1
+        return self
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         if self.b is None or self.W is None:

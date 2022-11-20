@@ -1,7 +1,6 @@
 from collections import namedtuple
 from typing import Callable, Dict, List, Literal, Tuple, Union
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -103,7 +102,7 @@ class KFold:
         return self._results
 
     @property
-    def models(self) -> Dict[str, Dict[str, float]]:
+    def models(self) -> List[Model]:
         """
         The mean and std of the k-fold cross validation results
         :return: the results list
@@ -122,7 +121,7 @@ class KFold:
         train_scores, test_scores = dict(), dict()
         for metric in self.metrics.keys():
             train_mean = np.mean([fold_results.train[metric] for fold_results in self.results])
-            test_mean = np.mean([fold_results.train[metric] for fold_results in self.results])
+            test_mean = np.mean([fold_results.validation[metric] for fold_results in self.results])
 
             train_std = np.sqrt(np.mean([(fold_results.train[metric] - train_mean) ** 2
                                          for fold_results in self.results]))
@@ -137,9 +136,9 @@ class KFold:
             test_scores = pd.DataFrame.from_dict(test_scores)
         return train_scores, test_scores
 
-    def get_best_model(self, n: int = 1,
-                       metric: Callable[[np.ndarray, np.ndarray], float] = m.r2,
-                       objective: Literal['min', 'max'] = 'max'):
+    def get_best_models(self, n: int = 1,
+                        metric: Callable[[np.ndarray, np.ndarray], float] = m.r2,
+                        objective: Literal['min', 'max'] = 'max') -> List[Model]:
         """
         Gets the best n models
         :param n: the number of the models
