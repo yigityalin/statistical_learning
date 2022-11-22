@@ -176,7 +176,7 @@ class NeuralNetwork(Model):
         :return:
         """
         db = np.expand_dims(np.sum(dZ, axis=0), axis=0) / m
-        dW = (dV.T @ Z_prev).T / m
+        dW = Z_prev.T @ dV / m
         return db, dW
 
     @staticmethod
