@@ -114,12 +114,9 @@ class SupportVectorRegressor:
         L = max(-self.C, Ai + Aj - self.C)
         H = min(self.C, Ai + Aj + self.C)
 
-        if L == H:
-            return False
-
         eta = self.kernel[i][i] + self.kernel[j][j] - 2 * self.kernel[i][j]
 
-        if eta <= 0:
+        if L == H or eta <= 0:
             return False
 
         Dij = Ei - Ej
