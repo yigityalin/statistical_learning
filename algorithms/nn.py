@@ -1,300 +1,215 @@
-from numbers import Number
-from typing import Callable, Iterable, List, Tuple, Type, Union
+from collections import defaultdict, namedtuple
+from itertools import product
+from pathlib import Path
+import json
 
+from .model_selection import DEFAULT_METRICS
+
+from tqdm import tqdm
+import h5py
 import numpy as np
 
-from . import utils
-from .activations import Activation
-from .base import Model
+
+def relu(z):
+    return np.maximum(0, z)
 
 
-class FullyConnectedLayer:
-    """
-    A fully connected layer with a specified number of neurons and an activation function.
-    Attributes:
-        in_features : int
-            size of each input sample
-        out_features : int
-            size of each output sample
-        activation : Activation
-            the activation function of the layer
-        b : np.ndarray
-            the bias vector of the layer
-        W : np.ndarray
-            the weight matrix of the layer
-        grad_b : np.ndarray
-            the gradient vector of the bias of the layer
-        grad_W : np.ndarray
-            the gradient matrix of the weights of the layer
-    """
-    def __init__(self, in_features: int, out_features: int, activation: Type[Activation]):
-        """
-        Initializes the activation and the weights of the layer
-        :param in_features: size of each input sample
-        :param out_features: size of each output sample
-        :param activation: the activation function of the layer
-        """
-        self.in_features = in_features
-        self.out_features = out_features
-        self._activation = activation()
-        self._b = None
-        self._W = None
-        self.initialize_parameters()
-
-    def initialize_parameters(self):
-        """
-        Initializes the layer parameters
-        """
-        self._b, self._W = utils.initialize_parameters(b_shape=(1, self.out_features),
-                                                       W_shape=(self.in_features, self.out_features))
-
-    @property
-    def b(self) -> np.ndarray:
-        """
-        The bias vector of the layer
-        :return: the bias vector
-        """
-        return self._b
-
-    @property
-    def W(self) -> np.ndarray:
-        """
-        The weight matrix of the layer
-        :return: the weight matrix
-        """
-        return self._W
-
-    @property
-    def activation(self) -> Activation:
-        """
-        The activation function of the layer
-        :return: the activation function
-        """
-        return self._activation
-
-    def V(self, X: np.ndarray) -> np.ndarray:
-        """
-        Calculates the induced local field of each neuron in the layer
-        :return: the induced local fields of the neurons
-        """
-        return self.b + X @ self.W
-
-    def __call__(self, X: np.ndarray) -> np.ndarray:
-        """
-        Implements the forward pass of the layer
-        :param X: the feature matrix
-        :return: the output of the layer
-        """
-        return self.activation(self.V(X))
-
-    def __repr__(self) -> str:
-        """
-        The string representation of the layer
-        :return: the string representation
-        """
-        return f'FullyConnectedLayer(in_features={self.in_features}, ' \
-               f'out_features={self.out_features}, activation={self.activation})'
-
-    def __str__(self) -> str:
-        """
-        The string representation of the layer
-        :return: the string representation
-        """
-        return repr(self)
-
-    def apply_gradients(self, alpha: Number, db: np.ndarray, dW: np.ndarray):
-        """
-        Applies gradient descent updates to the layer weights
-        :param alpha: the learning rate
-        :param db: the bias gradients
-        :param dW: the weight gradients
-        :return: None
-        """
-        self._b -= alpha * db
-        self._W -= alpha * dW
+def relu_backward(z):
+    return np.where(z > 0, 1, 0)
 
 
-class NeuralNetwork(Model):
-    """
-    Neural network model that is a stack of FullyConnectedLayers instances.
+# Weight and gradient containers for readability
+RecurrentLayerWeights = namedtuple('RecurrentLayerWeights', ['b', 'Wx', 'Wh'])
+RecurrentLayerGradients = RecurrentLayerWeights
 
-    Attributes:
-          layers : list[FullyConnectedLayer]
-                a list that contains all the network layers
-    """
-    def __init__(self, layers: Iterable[Tuple[int, int, Type[Activation]]]):
-        """
-        Initialize the layers of the network
-        :param layers: the layer list that contains the number of input and output features and the activation
-        """
-        self._layers = [FullyConnectedLayer(n_in, n_out, activation=activation)
-                        for n_in, n_out, activation in layers]
-        if len(self._layers) == 0:
-            raise ValueError('layers cannot be empty')
+FullyConnectedLayerWeights = namedtuple('FullyConnectedLayerWeights', ['b', 'W'])
+FullyConnectedLayerGradients = FullyConnectedLayerWeights
 
-    @property
-    def layers(self) -> List[FullyConnectedLayer]:
-        """
-        The layer list of the neural network
-        :return: the list of layers of the network
-        """
-        return self._layers
 
-    def __call__(self, X: np.ndarray) -> np.ndarray:
-        """
-        Wraps the model's predict method
-        :param X: the feature matrix
-        :return: predictions
-        """
-        return self.predict(X)
+class NeuralNetwork:
+    def __init__(self, n_neurons):
+        self.input_units = None                      # will be determined when while training
+        self.n_neurons = n_neurons                   # number of neurons in the layers of MLP
+        self.perceptron = None                       # MLP layers
 
-    def __repr__(self) -> str:
-        """
-        The string representation of the neural network
-        :return: the string representation
-        """
-        return f'NeuralNetwork(n_neurons={[layer.out_features for layer in self.layers]})'
+    def initialize_layers(self):
+        """Initializes the weights and the hidden state of the recurrent layer"""
+        rng = np.random.default_rng()
 
-    def __str__(self) -> str:
-        """
-        The string representation of the neural network
-        :return: the string representation
-        """
-        return repr(self)
+        # initialize MLP weights
+        self.perceptron = []
+        for i, n in enumerate(self.n_neurons):
+            n_prev = self.n_neurons[i - 1] if i != 0 else self.input_units
+            bound = np.sqrt(6 / (n + n_prev))
+            b = rng.uniform(-bound, bound, size=(n, 1))
+            W = rng.uniform(-bound, bound, size=(n, n_prev))
 
-    @staticmethod
-    def calculate_gradients(m: int,
-                            dV: np.ndarray,
-                            dZ: np.ndarray,
-                            Z_prev: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
-        """
-        Calculates the gradients of a neural network layer given
-        :param m: the input shape
-        :param dV: the gradient of the induced local field
-        :param dZ: the gradient of the layer output
-        :param Z_prev: the layer
-        :return:
-        """
-        db = np.expand_dims(np.sum(dZ, axis=0), axis=0) / m
-        dW = Z_prev.T @ dV / m
-        return db, dW
+            layer = FullyConnectedLayerWeights(b, W)
+            self.perceptron.append(layer)
 
-    @staticmethod
-    def calculate_learning_rate(alpha: Union[Number, Callable[[int], Number]], iteration: int) -> Number:
-        """
-        Given the alpha parameter and iteration number, calculates the learning rate
-        :param alpha: the alpha parameter of the fit method
-        :param iteration: the iteration number
-        :return: the learning rate
-        """
-        if isinstance(alpha, Callable):
-            learning_rate = alpha(iteration)
-        elif isinstance(alpha, Number):
-            learning_rate = alpha
-        else:
-            raise NotImplementedError('alpha parameter can only be a number or a callable that returns a number.')
-        return learning_rate
+    def __call__(self, X):
+        """Inference mode forward pass through the network"""
+        Z = X.T
+        for layer in self.perceptron[:-1]:
+            V = layer.W @ Z + layer.b
+            Z = relu(V)
+        V = self.perceptron[-1].W @ Z + self.perceptron[-1].b
+        Z = V
+        return Z.T
 
-    def initialize_parameters(self):
-        for layer in self.layers:
-            layer.initialize_parameters()
-
-    def forward(self, X: np.ndarray) -> Tuple[List, List]:
+    def forward(self, X, y):
         """
-        Training mode forward pass through the neural network
-        :param X: the feature matrix
-        :return: the cache for the backward pass of the backpropagation
+        Training mode forward pass though the network.
+        Caches the pre- and post-activation outputs of the layers
         """
         Z = X
-        V_cache, Z_cache = [], [X]
-        for layer in self.layers:
-            V = layer.V(Z)
-            Z = layer.activation(V)
+        V_cache, Z_cache = [], []
+        for layer in self.perceptron[:-1]:
+            V = layer.W @ Z + layer.b
+            Z = relu(V)
+
             V_cache.append(V)
             Z_cache.append(Z)
-        return V_cache, Z_cache
 
-    def backward(self, y_true: np.ndarray,
-                 V_cache: List[np.ndarray],
-                 Z_cache: List[np.ndarray],
-                 alpha: Number) -> None:
-        """
-        Training mode backward pass through the neural network.
-        Calculates the gradients and applies the gradient descent updates to the layer weights.
-        :param y_true: the target vector
-        :param V_cache: the induced local field cache
-        :param Z_cache: the activation cache
-        :param alpha: the learning rate
-        :return: None
-        """
-        m = Z_cache[-1].shape[1]
-        dZ = (2 / m) * np.subtract(Z_cache[-1], y_true)
-        dV = self.layers[-1].activation.backward(V_cache[-1], dZ)
-        db = (1 / m) * np.sum(dZ)
-        dW = Z_cache[-2].T @ dV / m
-        self.layers[-1].apply_gradients(alpha, db, dW)
+        V = self.perceptron[-1].W @ Z + self.perceptron[-1].b
+        Z = V
 
-        for i in reversed(range(0, len(self.layers) - 1)):
-            m = Z_cache[i].shape[1]
-            dZ = (self.layers[i + 1].W @ dV.T).T
-            dV = self.layers[i].activation.backward(V_cache[i], dZ)
+        V_cache.append(V)
+        Z_cache.append(Z)
 
-            db, dW = self.calculate_gradients(m, dV, dZ, Z_cache[i])
-            self.layers[i].apply_gradients(alpha, db, dW)
+        # compute training metrics
+        J = {metric: fn(y.T, Z.T) for metric, fn in DEFAULT_METRICS.items()}
+        return J, V_cache, Z_cache
 
-    def step(self, X: np.ndarray, y: np.ndarray, alpha: Number) -> None:
-        """
-        Applies one gradient descent step on a batch of data
-        :param X: the feature matrix of the batch
-        :param y: the target vector of the batch
-        :param alpha: the learning rate
-        :return:
-        """
-        V_cache, Z_cache = self.forward(X)
-        self.backward(y, V_cache, Z_cache, alpha)
+    def backward(self, X, y, V_cache, Z_cache):
+        """Training mode backward pass through the network"""
+        # calculate the gradients for the MLP
+        gradients = []
+
+        delta = (2 / Z_cache[-1].shape[1]) * np.subtract(Z_cache[-1], y)
+        db = np.mean(delta, axis=1, keepdims=True)
+        dW = delta @ Z_cache[-2].T / Z_cache[-2].shape[-1]
+        gradients.append(FullyConnectedLayerGradients(db, dW))
+
+        for i in reversed(range(1, len(self.perceptron) - 1)):
+            delta = (self.perceptron[i + 1].W.T @ delta) * relu_backward(V_cache[i])
+            db = np.mean(delta, axis=1, keepdims=True)
+            dW = delta @ Z_cache[i - 1].T / Z_cache[i - 1].shape[-1]
+            gradients.append(FullyConnectedLayerGradients(db, dW))
+
+        delta = (self.perceptron[1].W.T @ delta) * relu_backward(V_cache[0])
+        db = np.mean(delta, axis=1, keepdims=True)
+        dW = (delta @ X.T) / X.shape[-1]
+        gradients.append(FullyConnectedLayerGradients(db, dW))
+
+        gradients.reverse()  # reverse the gradient list to get the correct order
+        return gradients
+
+    def step(self, X, y):
+        """Combines a forward and a backward pass through the network"""
+        J, V_cache, Z_cache = self.forward(X, y)
+        gradients = self.backward(X, y, V_cache, Z_cache)
+        return J, gradients
 
     def fit(self,
-            X_train: np.ndarray,
-            y_train: np.ndarray,
-            batch_size: int,
-            epochs: int,
-            alpha: Union[Number, Callable[[int], Number]],
-            shuffle: bool = True,
-            start_epoch: int = 0,
-            cold_start: bool = False) -> 'NeuralNetwork':
+            X,
+            y,
+            X_valid,
+            y_valid,
+            alpha=0.1,
+            momentum=0.85,
+            epochs=50,
+            batch_size=32,
+            patience=5,
+            min_delta=1e-7,
+            shuffle=True,
+            cold_start=False
+            ):
         """
-        Fits the neural network to the training data via gradient descent
-        :param X_train: the feature matrix of training data
-        :param y_train: the target vector of training data
-        :param batch_size: the size of batches for each gradient descent step
-        :param epochs: the number of iterations on the training data
-        :param alpha: the learning rate or a callable that takes the iteration number and returns the learning rate
-        :param shuffle: whether to shuffle the dataset each iteration while training
+        Train the neural network
+        :param X: the training features
+        :param y: the training labels
+        :param alpha: the learning rate
+        :param momentum: the momentum
+        :param epochs: the number of training epochs
+        :param batch_size: the size of the training batches
+        :param unfold: number of time steps to backpropagate in time
+        :param shuffle: whether to shuffle the data each epoch
+        :param X_valid: the validation features
+        :param y_valid: the validation labels
         :param cold_start: whether to reinitialize the weights before training
-        :return: None
+        :return:
         """
-        X_train = np.asarray(X_train)
-        y_train = np.asarray(y_train)
-        if cold_start:
-            self.initialize_parameters()
-        n_batches = len(y_train) // batch_size
-        for iteration in range(1 + start_epoch, 1 + start_epoch + epochs):
-            learning_rate = self.calculate_learning_rate(alpha, iteration)
-            indices = np.random.permutation(len(y_train)) if shuffle else np.arange(len(y_train))
-            for batch in range(0, n_batches):
-                batch_indices = indices[batch * batch_size: (batch + 1) * batch_size]
-                X_batch = X_train[batch_indices]
-                y_batch = y_train[batch_indices]
-                self.step(X_batch, y_batch, learning_rate)
-        return self
+        if cold_start or self.perceptron is None:
+            self.input_units = X.shape[-1]
+            self.initialize_layers()
 
-    def predict(self, X: np.ndarray) -> np.ndarray:
-        """
-        Inference mode forward pass through the neural network
-        :param X: the feature matrix
-        :return: the predictions
-        """
-        Z = X
-        for layer in self.layers:
-            Z = layer(Z)
-        return Z
+        n_batches = len(X) // batch_size
+        history = defaultdict(list)
+
+        delta_weights_prev = None
+        n_no_improvement = 0
+        for epoch in (progress_bar := tqdm(range(epochs))):
+            # obtain the shuffled indices for training and validation
+            train_indices = np.random.permutation(len(X)) if shuffle else np.arange(len(X))
+            batch_avg_losses = []
+            for batch in range(n_batches):
+                # get the batch data using the shuffled indices
+                batch_indices = train_indices[batch * batch_size: (batch + 1) * batch_size]
+                X_batch = X[batch_indices].T
+                y_batch = y[batch_indices].T
+
+                # forward and backward passes through the network
+                J, gradients = self.step(X_batch, y_batch)
+
+                batch_avg_losses.append(J)
+
+                # calculate the updates given previous updates and gradients
+                delta_weights = self.calculate_updates(delta_weights_prev, gradients, momentum)
+                self.apply_updates(delta_weights, alpha)
+
+                # save previous updates for momentum
+                delta_weights_prev = delta_weights
+
+            # test model performance on validation dataset
+            valid_avg_losses = {metric: np.mean(fn(y_valid, self(X_valid)))
+                                for metric, fn in DEFAULT_METRICS.items()}
+            train_avg_losses = {metric: np.mean([loss[metric] for loss in batch_avg_losses])
+                                for metric in DEFAULT_METRICS.keys()}
+
+            # log training and validation metrics
+
+            for metric in DEFAULT_METRICS.keys():
+                history[f'train_{metric}'].append(train_avg_losses[metric])
+                history[f'valid_{metric}'].append(valid_avg_losses[metric])
+
+            progress_bar.set_description_str(f'n_neurons={"-".join([str(i) for i in self.n_neurons])}, '
+                                             f'alpha={alpha}, momentum={momentum}, batch_size={batch_size}')
+            progress_bar.set_postfix_str(f'train_mse={train_avg_losses["MSE"]:.7f}, '
+                                         f'valid_mse={valid_avg_losses["MSE"]:.7f}')
+
+            # stop the training if there is no improvement in last "tolerance" episodes
+            if epoch > 2 and history['valid_MSE'][-2] - history['valid_MSE'][-1] < min_delta:
+                n_no_improvement += 1
+                if n_no_improvement > patience:
+                    break
+            else:
+                n_no_improvement = 0
+        return history
+
+    @staticmethod
+    def calculate_updates(delta_weights_prev, gradients, momentum):
+        """Calculate the weight updates with momentum given previous updates and gradients"""
+        delta_weights = [
+            FullyConnectedLayerWeights(*[momentum * delta_w_prev + (1 - momentum) * grads
+                                         for delta_w_prev, grads in zip(delta_weights_prev_, gradients_)])
+            for delta_weights_prev_, gradients_ in zip(delta_weights_prev, gradients)
+        ] if delta_weights_prev else gradients
+        return delta_weights
+
+    def apply_updates(self, delta_weights, alpha):
+        """Apply the calculated updates to the network weights"""
+        self.perceptron = [
+            FullyConnectedLayerWeights(*[w - alpha * delta for w, delta in zip(layer, delta_weights_)])
+            for layer, delta_weights_ in zip(self.perceptron, delta_weights)
+        ]

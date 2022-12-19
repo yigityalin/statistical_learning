@@ -1,10 +1,14 @@
+from collections import defaultdict
 from numbers import Number
 from typing import Callable, Tuple, Union
 
+from tqdm import tqdm
 import numpy as np
 
 from . import utils
 from .base import Model
+from .metrics import mse
+from .model_selection import DEFAULT_METRICS
 
 
 def check_dimensions(X=None, y=None) -> Tuple[Union[None, np.ndarray], Union[None, np.ndarray]]:
@@ -98,9 +102,14 @@ class LinearRegression(Model):
     def fit(self,
             X: np.ndarray,
             y: np.ndarray,
-            max_iter: int = None,
-            tolerance: float = 1e-10,
-            cold_start: bool = False) -> 'LinearRegression':
+            X_valid,
+            y_valid,
+            epochs: int = None,
+            batch_size: int = 32,
+            min_delta: float = 1e-7,
+            patience: int = 50,
+            shuffle: bool = True,
+            cold_start: bool = False) -> dict:
         """
         Calculates the weights and bias of the model using the gradient descent algorithm
         :param X: the feature matrix
@@ -118,17 +127,44 @@ class LinearRegression(Model):
         if cold_start or self.b is None or self.W is None:
             self.initialize_parameters(X.shape[-1])
 
-        iteration, grad_b, grad_W = 0, np.inf, np.inf
-        if max_iter is None:
-            max_iter = np.inf
-        while iteration < max_iter and not np.isclose(grad_b, 0, atol=tolerance).all() \
-                and not np.isclose(grad_W, 0, atol=tolerance).all():
+        n_batches = len(X) // batch_size
+        history = defaultdict(list)
+
+        n_no_improvement = 0
+        for iteration in (progress_bar := tqdm(range(epochs))):
             alpha = self._get_alpha(iteration)
-            grad_b, grad_W = self._calculate_gradients(X, y)
-            self._b -= alpha * grad_b
-            self._W -= alpha * grad_W
-            iteration += 1
-        return self
+            train_indices = np.random.permutation(len(X)) if shuffle else np.arange(len(X))
+            batch_average_metrics = defaultdict(list)
+            for batch in range(n_batches):
+                batch_indices = train_indices[batch * batch_size: (batch + 1) * batch_size]
+                X_batch = X[batch_indices]
+                y_batch = y[batch_indices]
+                grad_b, grad_W = self._calculate_gradients(X_batch, y_batch)
+                y_batch_pred = self.predict(X_batch)
+                for metric, fn in DEFAULT_METRICS.items():
+                    batch_average_metrics[metric].append(fn(y_batch, y_batch_pred))
+                self._b -= alpha * grad_b
+                self._W -= alpha * grad_W
+            train_avg_losses = {metric: np.mean(batch_average_metrics[metric])
+                                for metric in DEFAULT_METRICS.keys()}
+            valid_avg_losses = {metric: np.mean(fn(y_valid, self.predict(X_valid)))
+                                for metric, fn in DEFAULT_METRICS.items()}
+
+            for metric in DEFAULT_METRICS.keys():
+                history[f'train_{metric}'].append(train_avg_losses[metric])
+                history[f'valid_{metric}'].append(valid_avg_losses[metric])
+
+            progress_bar.set_description_str(f'alpha={alpha}, lambda={self.lambda_}, batch_size={batch_size}')
+            progress_bar.set_postfix_str(f'train_mse={train_avg_losses["MSE"]:.7f}, '
+                                         f'valid_mse={valid_avg_losses["MSE"]:.7f}')
+
+            if iteration > 2 and history['valid_MSE'][-2] - history['valid_MSE'][-1] < min_delta:
+                n_no_improvement += 1
+                if n_no_improvement > patience:
+                    break
+            else:
+                n_no_improvement = 0
+        return history
 
     def predict(self, X: np.ndarray) -> np.ndarray:
         if self.b is None or self.W is None:
