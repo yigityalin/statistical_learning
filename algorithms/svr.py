@@ -105,44 +105,34 @@ class SupportVectorRegressor:
         Ei = self.calculate_error(i)
         Ej = self.calculate_error(j)
 
-        Ai = self.alpha[i]
-        Aj = self.alpha[j]
+        L = np.max([-self.C, self.alpha[i] + self.alpha[j] - self.C])
+        H = np.min([self.C, self.alpha[i] + self.alpha[j] + self.C])
 
-        Xi = self.X[i]
-        Xj = self.X[j]
-
-        L = max(-self.C, Ai + Aj - self.C)
-        H = min(self.C, Ai + Aj + self.C)
-
-        eta = self.kernel[i][i] + self.kernel[j][j] - 2 * self.kernel[i][j]
+        eta = self.kernel[i][i] - 2 * self.kernel[i][j] + self.kernel[j][j]
 
         if L == H or eta <= 0:
             return False
 
-        Dij = Ei - Ej
+        Aj_updated_positive = (Ei - Ej + 2 * self.epsilon) / eta + self.alpha[j]
+        Aj_updated_zero = (Ei - Ej) / eta + self.alpha[j]
+        Aj_updated_negative = (Ei - Ej - 2 * self.epsilon) / eta + self.alpha[j]
 
-        Aj_updated_positive = Aj + (Dij + 2 * self.epsilon) / eta
-        Aj_updated_zero = Aj + Dij / eta
-        Aj_updated_negative = Aj + (Dij - 2 * self.epsilon) / eta
-
-        Rij = Ai + Aj
-
-        if Rij <= -self.C:
+        if self.alpha[i] + self.alpha[j] <= -self.C:
             Aj_updated = Aj_updated_zero
 
-        elif -self.C < Rij < 0:
-            if Aj_updated_positive < Rij:
+        elif -self.C < self.alpha[i] + self.alpha[j] < 0:
+            if Aj_updated_positive < self.alpha[i] + self.alpha[j]:
                 Aj_updated = Aj_updated_positive
-            elif Aj_updated_zero <= Rij:
-                Aj_updated = Rij
-            elif Rij < Aj_updated_zero < 0:
+            elif Aj_updated_zero <= self.alpha[i] + self.alpha[j]:
+                Aj_updated = self.alpha[i] + self.alpha[j]
+            elif self.alpha[i] + self.alpha[j] < Aj_updated_zero < 0:
                 Aj_updated = Aj_updated_zero
             elif 0 < Aj_updated_negative:
                 Aj_updated = Aj_updated_negative
             else:
                 Aj_updated = 0
 
-        elif Rij == 0:
+        elif self.alpha[i] + self.alpha[j] == 0:
             if Aj_updated_positive <= L:
                 Aj_updated = L
             elif L < Aj_updated_positive < 0:
@@ -152,32 +142,32 @@ class SupportVectorRegressor:
             else:
                 Aj_updated = 0
 
-        elif 0 < Rij < self.C:
+        elif 0 < self.alpha[i] + self.alpha[j] < self.C:
             if Aj_updated_positive < 0:
                 Aj_updated = Aj_updated_positive
             elif Aj_updated_zero <= 0:
                 Aj_updated = 0
-            elif 0 < Aj_updated_zero < Rij:
+            elif 0 < Aj_updated_zero < self.alpha[i] + self.alpha[j]:
                 Aj_updated = Aj_updated_zero
-            elif Rij < Aj_updated_negative:
+            elif self.alpha[i] + self.alpha[j] < Aj_updated_negative:
                 Aj_updated = Aj_updated_negative
             else:
-                Aj_updated = Rij
+                Aj_updated = self.alpha[i] + self.alpha[j]
 
         else:
             Aj_updated = Aj_updated_zero
 
         Aj_updated = np.clip(Aj_updated, L, H)
-        Ai_updated = Ai + Aj - Aj_updated
+        Ai_updated = self.alpha[i] + self.alpha[j] - Aj_updated
 
-        dAi = Ai_updated - Ai
-        dAj = Aj_updated - Aj
+        dAi = Ai_updated - self.alpha[i]
+        dAj = Aj_updated - self.alpha[j]
 
         if self.kernel_type == 'linear':
-            self.W += np.ravel(dAi * Xi + dAj * Xj)
+            self.W += np.ravel(dAi * self.X[i] + dAj * self.X[j])
 
-        bi = self.b - Ei - dAi * self.kernel[i][i] - dAj * self.kernel[i][j]
-        bj = self.b - Ej - dAi * self.kernel[i][j] - dAj * self.kernel[j][j]
+        bi = self.b - dAi * self.kernel[i][i] - dAj * self.kernel[i][j] - Ei
+        bj = self.b - dAi * self.kernel[i][j] - dAj * self.kernel[j][j] - Ej
 
         self.b = (bi + bj) / 2
         if 0 < Ai_updated < self.C:
