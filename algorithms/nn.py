@@ -86,7 +86,7 @@ class NeuralNetwork:
         # calculate the gradients for the MLP
         gradients = []
 
-        delta = (2 / Z_cache[-1].shape[1]) * np.subtract(Z_cache[-1], y)
+        delta = (2 / Z_cache[-1].shape[1]) * np.subtract(Z_cache[-1], y) # np.sign(Z_cache[-1] - y)
         db = np.mean(delta, axis=1, keepdims=True)
         dW = delta @ Z_cache[-2].T / Z_cache[-2].shape[-1]
         gradients.append(FullyConnectedLayerGradients(db, dW))

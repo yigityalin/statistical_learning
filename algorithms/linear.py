@@ -198,5 +198,5 @@ class LinearRegression(Model):
         """
         y_pred = self.b + X @ self.W
         grad_b = 2 * np.sum(y_pred - y) / len(y)
-        grad_W = 2 * (X.T @ (y_pred - y) + self.lambda_ * self.W) / len(y)
+        grad_W = 2 * (X.T @ (y_pred - y) + self.lambda_ * np.sign(self.W)) / len(y)
         return grad_b, grad_W
